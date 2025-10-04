@@ -34,46 +34,49 @@ function sendTextForAnalysis(text) {
   );
 }
 
-// --- PDF Handling ---
+// --- PDF Handling Logic ---
 function handlePdfPage() {
-  console.log('[Bias Mirror] PDF page detected. Injecting PDF.js library...');
+  console.log('[Bias Mirror] PDF page detected. Starting injection process.');
   showToast(`<b>Bias Mirror</b><br/>Loading PDF analyzer...`);
 
-  // Inject the script and wait for it to load
-  const script = document.createElement('script');
-  script.src = chrome.runtime.getURL('vendor/pdf.min.js');
-  script.onload = async () => {
-    console.log('[Bias Mirror] PDF.js library loaded.');
-    try {
-      const pdfjsLib = window.pdfjsLib;
-      if (!pdfjsLib) throw new Error("pdfjsLib is not available on the window object.");
-
-      pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('vendor/pdf.worker.min.js');
-      const pdf = await pdfjsLib.getDocument(window.location.href).promise;
-      
-      const pagesToSample = new Set([1, 2, pdf.numPages].filter(p => p > 0 && p <= pdf.numPages));
-      let fullText = '';
-      for (const pageNum of Array.from(pagesToSample)) {
-        const page = await pdf.getPage(pageNum);
-        const textContent = await page.getTextContent();
-        fullText += textContent.items.map(item => item.str).join(' ') + '\\n';
-      }
-      sendTextForAnalysis(fullText);
-    } catch (error) {
-      console.error('[Bias Mirror] PDF processing failed:', error);
-      showToast(`<b>PDF Error:</b><br/>${error.message}`, true, 8000);
+  // 1. Listen for the result from our bridge script.
+  window.addEventListener('message', function(event) {
+    if (event.source !== window || event.data.type !== 'BIAS_MIRROR_PDF_RESULT') return;
+    
+    console.log('[Bias Mirror] Received result from bridge script.');
+    const { text, error } = event.data.payload;
+    if (error) {
+      showToast(`<b>PDF Error:</b><br/>${error}`, true, 8000);
+    } else {
+      sendTextForAnalysis(text);
     }
+  }, { once: true });
+
+  // 2. Inject the main pdf.js library.
+  const pdfLibScript = document.createElement('script');
+  pdfLibScript.src = chrome.runtime.getURL('vendor/pdf.min.js');
+  
+  // 3. When it loads, pass the worker URL and then inject our bridge script.
+  pdfLibScript.onload = () => {
+    console.log('[Bias Mirror] pdf.min.js loaded. Passing worker URL and injecting bridge.');
+    
+    // **THE FIX, PART 2:** Securely pass the required URL to the main world.
+    window.biasMirrorPdfWorkerSrc = chrome.runtime.getURL('vendor/pdf.worker.min.js');
+
+    const bridgeScript = document.createElement('script');
+    bridgeScript.src = chrome.runtime.getURL('pdf_bridge.js');
+    (document.head || document.documentElement).appendChild(bridgeScript);
   };
-  script.onerror = () => {
-    console.error('[Bias Mirror] Failed to load pdf.min.js');
+  
+  pdfLibScript.onerror = () => {
     showToast('<b>Error:</b><br/>Could not load the core PDF library.', true);
   };
-  document.head.appendChild(script);
+  
+  (document.head || document.documentElement).appendChild(pdfLibScript);
 }
 
-// --- HTML Handling ---
+// --- HTML Handling Logic ---
 function handleHtmlPage() {
-  console.log("[Bias Mirror] HTML page detected.");
   const textSample = document.body.innerText;
   if (!textSample || textSample.trim().length < 250) {
     return;
@@ -83,17 +86,16 @@ function handleHtmlPage() {
 
 // --- Main Entry Point ---
 function main() {
-  // Give the page a moment to load fully before we do anything
-  if (document.readyState === 'complete') {
-    console.log("[Bias Mirror] Document is complete. Running main logic.");
-    const isPdf = document.contentType === 'application/pdf' || document.querySelector('embed[type="application/pdf"]') || window.location.pathname.toLowerCase().endsWith('.pdf');
-    if (isPdf) {
-      handlePdfPage();
-    } else {
-      handleHtmlPage();
-    }
-  } else {
+  if (document.readyState !== 'complete') {
     window.addEventListener('load', main, { once: true });
+    return;
+  }
+  
+  const isPdf = document.contentType === 'application/pdf' || document.querySelector('embed[type="application/pdf"]') || window.location.pathname.toLowerCase().endsWith('.pdf');
+  if (isPdf) {
+    handlePdfPage();
+  } else {
+    handleHtmlPage();
   }
 }
 

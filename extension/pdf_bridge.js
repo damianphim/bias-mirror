@@ -2,10 +2,11 @@
 
 (async function() {
   try {
-    // This variable is set by content.js right before this script is injected.
+    // **THE FIX, PART 1:** Read the worker source URL from the window object,
+    // where the content script has placed it for us.
     const workerSrc = window.biasMirrorPdfWorkerSrc;
     if (!workerSrc) {
-      throw new Error("PDF worker source URL was not provided by the content script.");
+      throw new Error("PDF worker source URL was not provided to the main world.");
     }
 
     const pdfjsLib = window.pdfjsLib;
