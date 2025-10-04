@@ -1,8 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Bias Mirror for Groups",
-  "version": "0.1.1",
-  "description": "Uses AI to analyze documents for bias and aggregates results for groups.",
+  "name": "Bias Mirror (Failsafe)",
+  "version": "1.0.0",
   "permissions": [
     "storage",
     "activeTab"
@@ -23,15 +22,14 @@
         "<all_urls>"
       ],
       "js": [
-        "vendor/pdf.min.js",
         "content.js"
-      ],
-      "run_at": "document_idle"
+      ]
     }
   ],
   "web_accessible_resources": [
     {
       "resources": [
+        "vendor/pdf.min.js",
         "vendor/pdf.worker.min.js"
       ],
       "matches": [

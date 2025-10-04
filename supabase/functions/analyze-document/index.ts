@@ -2,11 +2,10 @@ import { corsHeaders } from '../_shared/cors.ts'
 
 console.log("Analyze document function initialized.");
 
-// Get the OpenAI API key from the environment variables (secrets)
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
 Deno.serve(async (req) => {
-  // Handle preflight CORS request
+  // Handle preflight CORS request for browser security
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -29,11 +28,11 @@ Deno.serve(async (req) => {
 
       Text to analyze:
       ---
-      ${documentText.slice(0, 15000)} 
+      ${documentText.slice(0, 15000)}
       ---
     `;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://api.openai.com/v1/chat/competions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENAI_API_KEY}`,
@@ -62,6 +61,7 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+    // Return a 400 Bad Request for client-side errors, 500 for server-side
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
