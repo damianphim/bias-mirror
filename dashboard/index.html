@@ -1,0 +1,39 @@
+<!doctype html><meta charset="utf-8">
+<title>Bias Mirror – Group</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="./config.js"></script>
+<div style="max-width:760px;margin:40px auto;font:16px system-ui;line-height:1.4">
+  <h2 id="title">Group</h2>
+  <p id="meta" style="color:#666"></p>
+  <h3>Gender</h3>
+  <canvas id="gender"></canvas>
+  <h3 style="margin-top:24px">Geography</h3>
+  <canvas id="geo"></canvas>
+</div>
+<script>
+const GROUP_ID = new URLSearchParams(location.search).get('g') || 'CS-201-F25';
+document.getElementById('title').textContent = 'Group: ' + GROUP_ID;
+
+const url = `${SUPABASE_URL}/rest/v1/documents?group_id=eq.${encodeURIComponent(GROUP_ID)}&select=counts,scanned_at`;
+fetch(url,{headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`}})
+.then(r=>r.json())
+.then(rows=>{
+  document.getElementById('meta').textContent = `${rows.length} documents scanned`;
+  const sum = rows.reduce((acc,r)=>{
+    const c=r.counts;
+    acc.male+=c.gender.male; acc.female+=c.gender.female; acc.unknown+=c.gender.unknown;
+    acc.US+=c.geo.US; acc.EU+=c.geo.EU; acc.Asia+=c.geo.Asia; acc.Other+=c.geo.Other;
+    return acc;
+  },{male:0,female:0,unknown:0,US:0,EU:0,Asia:0,Other:0});
+
+  new Chart(document.getElementById('gender'),{
+    type:'bar',
+    data:{labels:['Male','Female','Unknown'],datasets:[{label:'Authors',data:[sum.male,sum.female,sum.unknown]}]}
+  });
+
+  new Chart(document.getElementById('geo'),{
+    type:'bar',
+    data:{labels:['US','EU','Asia','Other'],datasets:[{label:'Signals',data:[sum.US,sum.EU,sum.Asia,sum.Other]}]}
+  });
+});
+</script>

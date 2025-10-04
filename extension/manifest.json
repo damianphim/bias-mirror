@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Bias Mirror for Groups",
+  "version": "0.1.0",
+  "description": "Per-document bias snapshot + group-wide aggregates for classes/departments.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["https://*/*", "http://*/*"],
+  "background": { "service_worker": "service_worker.js" },
+  "action": { "default_popup": "popup.html" },
+  "content_scripts": [{
+    "matches": ["http://*/*", "https://*/*", "file://*/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }]
+}

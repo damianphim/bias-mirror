@@ -1,0 +1,13 @@
+# env / local config
+.env
+.env.*
+dashboard/config.js
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/settings.json
+
+# node stuff
+node_modules/
