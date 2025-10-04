@@ -1,54 +1,68 @@
-// service_worker.js
+// extension/service_worker.js
+importScripts('config.js'); // Your SUPABASE_URL and SUPABASE_ANON_KEY are here
 
-// Import the configuration variables from config.js
-importScripts('config.js');
-
-async function postCounts({groupId, docTitle, fingerprint, counts}) {
-  // The 'on_conflict' parameter is not needed here and can cause issues.
-  // The 'Prefer' header handles the upsert logic.
-  const url = `${SUPABASE_URL}/rest/v1/documents`;
-  const payload = {
-    group_id: groupId,
-    doc_title: docTitle,
-    doc_fingerprint: fingerprint,
-    counts
-  };
-
-  // Your fetch logic was already correct for handling upserts.
-  await fetch(url, {
-    method: "POST",
+async function getAiAnalysis(documentText) {
+  // Invoke the Edge Function
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-document`, {
+    method: 'POST',
     headers: {
-      "apikey": SUPABASE_ANON_KEY,
-      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-      "Content-Type": "application/json",
-      // This header tells Supabase to update the row if a duplicate is found.
-      "Prefer": "resolution=merge-duplicates"
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json'
     },
-    body: JSON.stringify(payload)
+    body: JSON.stringify({ documentText: documentText })
   });
+  if (!response.ok) {
+    throw new Error(`AI analysis failed: ${response.statusText}`);
+  }
+  return response.json();
 }
 
-// The hardcoded keys are now removed from this file.
+async function saveData({ groupId, docTitle, fingerprint, analysis }) {
+  // Now we save the result from the AI to the database
+  const { data, error } = await fetch(`${SUPABASE_URL}/rest/v1/documents`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates'
+    },
+    body: JSON.stringify({
+      group_id: groupId,
+      doc_title: docTitle,
+      doc_fingerprint: fingerprint,
+      analysis: analysis // The column is now 'analysis'
+    })
+  });
+
+  if (error) {
+    throw new Error(`Failed to save data: ${error.message}`);
+  }
+  return data;
+}
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type === "BIAS_COUNTS") {
-    chrome.storage.sync.get(['groupId'], async ({groupId}) => {
+  if (msg.type === "ANALYZE_TEXT") {
+    chrome.storage.sync.get(['groupId'], async ({ groupId }) => {
       if (!groupId) {
-        sendResponse({ok: false, err: "no group set"});
+        sendResponse({ ok: false, err: "No group set. Please set a group ID in the extension popup." });
         return;
       }
       try {
-        // Check if SUPABASE_URL is loaded before proceeding
-        if (typeof SUPABASE_URL === 'undefined') {
-          throw new Error("Supabase config not loaded.");
-        }
-        await postCounts({groupId, docTitle: msg.docTitle, fingerprint: msg.fingerprint, counts: msg.counts});
-        chrome.storage.sync.set({lastSnapshot: {docTitle: msg.docTitle, summary: msg.counts}});
-        sendResponse({ok: true});
+        // 1. Get analysis from the AI via our Edge Function
+        const { analysis } = await getAiAnalysis(msg.text);
+
+        // 2. Save the AI's response to our database
+        await saveData({ groupId, docTitle: msg.docTitle, fingerprint: msg.fingerprint, analysis });
+
+        // 3. Store the result for the popup
+        chrome.storage.sync.set({ lastSnapshot: { docTitle: msg.docTitle, summary: analysis } });
+        sendResponse({ ok: true, analysis: analysis });
+
       } catch (e) {
-        sendResponse({ok: false, err: String(e)});
+        sendResponse({ ok: false, err: e.toString() });
       }
     });
-    return true; // Required for async sendResponse
+    return true; // Required for async response
   }
 });

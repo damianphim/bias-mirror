@@ -1,21 +1,42 @@
 {
   "manifest_version": 3,
   "name": "Bias Mirror for Groups",
-  "version": "0.1.0",
-  "description": "Per-document bias snapshot + group-wide aggregates for classes/departments.",
-  "permissions": ["storage", "activeTab", "scripting"],
-  "host_permissions": ["https://*/*", "http://*/*"],
-  "background": { "service_worker": "service_worker.js" },
-  "web_accessible_resources": [
+  "version": "0.1.1",
+  "description": "Uses AI to analyze documents for bias and aggregates results for groups.",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
+  "background": {
+    "service_worker": "service_worker.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
     {
-      "resources": ["config.js"],
-      "matches": ["<all_urls>"]
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "vendor/pdf.min.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
     }
   ],
-  "action": { "default_popup": "popup.html" },
-  "content_scripts": [{
-    "matches": ["http://*/*", "https://*/*", "file://*/*"],
-    "js": ["content.js"],
-    "run_at": "document_idle"
-  }]
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "vendor/pdf.worker.min.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
 }

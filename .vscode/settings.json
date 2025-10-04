@@ -1,5 +1,18 @@
+// .vscode/settings.json
 {
-  "editor.formatOnSave": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "files.eol": "\n"
+  // Enable the Deno extension for this workspace
+  "deno.enable": true,
+
+  // Enable Deno linting
+  "deno.lint": true,
+
+  // IMPORTANT: Tell Deno to only manage the functions directory
+  // This prevents it from interfering with your extension's code.
+  "deno.enablePaths": [
+    "supabase/functions"
+  ],
+
+  // This silences a common warning from the built-in TS server
+  "typescript.validate.enable": false,
+  "javascript.validate.enable": false
 }
