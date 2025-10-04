@@ -1,13 +1,17 @@
-# env / local config
+# Local configuration and secrets
+# Ignore all .env files and any file named config.js in any subfolder
 .env
 .env.*
-dashboard/config.js
+**/config.js
 
-# OS/editor
+# But DO include example config files so they get committed
+!**/config.example.js
+
+# Dependencies
+node_modules/
+
+# OS and Editor specific files
 .DS_Store
 Thumbs.db
 .vscode/*
 !.vscode/settings.json
-
-# node stuff
-node_modules/
