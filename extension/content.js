@@ -1,3 +1,6 @@
+// ADDED LOG
+console.log("Content script has been injected and is running.");
+
 // --- UI Feedback ---
 function showToast(message, isError = false, duration = 6000) {
   const existingToast = document.getElementById('bias-mirror-toast');
@@ -18,9 +21,14 @@ function sendTextForAnalysis(text) {
   showToast(`<b>Bias Mirror</b><br/>Sending document for AI analysis...`);
   const title = document.title || location.href;
   const fingerprint = btoa(encodeURIComponent(location.hostname + "::" + title)).slice(0, 64);
+
+  // LOG TO CONFIRM THIS FUNCTION IS CALLED
+  console.log("SUCCESS: sendTextForAnalysis() is being called.");
+
   chrome.runtime.sendMessage(
     { type: "ANALYZE_TEXT", text: text.slice(0, 15000), docTitle: title, fingerprint },
     (response) => {
+      console.log('[Bias Mirror] Response from service worker:', response);
       if (chrome.runtime.lastError) {
           showToast(`<b>Extension Error:</b><br/>${chrome.runtime.lastError.message}`, true);
           return;
@@ -46,6 +54,7 @@ function handlePdfPage() {
     console.log('[Bias Mirror] Received result from bridge script.');
     const { text, error } = event.data.payload;
     if (error) {
+      console.error("Error from pdf_bridge.js:", error); // Make error visible in console
       showToast(`<b>PDF Error:</b><br/>${error}`, true, 8000);
     } else {
       sendTextForAnalysis(text);
@@ -53,18 +62,21 @@ function handlePdfPage() {
   }, { once: true });
 
   // 2. Inject the main pdf.js library.
+  // For this method to work, vendor/pdf.min.js MUST be a legacy build, not a module.
+  // This is because it needs to create the global `window.pdfjsLib` object.
   const pdfLibScript = document.createElement('script');
   pdfLibScript.src = chrome.runtime.getURL('vendor/pdf.min.js');
   
-  // 3. When it loads, pass the worker URL and then inject our bridge script.
   pdfLibScript.onload = () => {
-    console.log('[Bias Mirror] pdf.min.js loaded. Passing worker URL and injecting bridge.');
+    console.log('[Bias Mirror] pdf.min.js loaded. Injecting bridge script.');
     
-    // **THE FIX, PART 2:** Securely pass the required URL to the main world.
-    window.biasMirrorPdfWorkerSrc = chrome.runtime.getURL('vendor/pdf.worker.min.js');
-
     const bridgeScript = document.createElement('script');
     bridgeScript.src = chrome.runtime.getURL('pdf_bridge.js');
+    
+    // **THE CORRECT FIX:** Pass the dynamic URL via a data attribute.
+    const workerUrl = chrome.runtime.getURL('vendor/pdf.worker.min.js');
+    bridgeScript.setAttribute('data-worker-src', workerUrl);
+    
     (document.head || document.documentElement).appendChild(bridgeScript);
   };
   
@@ -77,8 +89,13 @@ function handlePdfPage() {
 
 // --- HTML Handling Logic ---
 function handleHtmlPage() {
+  // LOG TO CONFIRM HTML PATH
+  console.log("handleHtmlPage() called.");
+
   const textSample = document.body.innerText;
   if (!textSample || textSample.trim().length < 250) {
+    // LOG FOR SILENT EXIT
+    console.log(`Exiting: Not enough text on the page. Found ${textSample?.trim().length || 0} characters.`);
     return;
   }
   sendTextForAnalysis(textSample);
@@ -86,12 +103,24 @@ function handleHtmlPage() {
 
 // --- Main Entry Point ---
 function main() {
+  // LOG TO CONFIRM MAIN IS RUNNING
+  console.log("main() function has started.");
+
   if (document.readyState !== 'complete') {
+    // LOG FOR WAITING
+    console.log("Document not ready, waiting for 'load' event.");
     window.addEventListener('load', main, { once: true });
     return;
   }
-  
+
+  // LOG AFTER PAGE HAS LOADED
+  console.log("Document is complete. Checking page type...");
+
   const isPdf = document.contentType === 'application/pdf' || document.querySelector('embed[type="application/pdf"]') || window.location.pathname.toLowerCase().endsWith('.pdf');
+
+  // LOG THE RESULT OF THE PDF CHECK
+  console.log(`Is this a PDF page? ${isPdf}`);
+
   if (isPdf) {
     handlePdfPage();
   } else {

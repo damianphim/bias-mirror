@@ -11,7 +11,8 @@
     "http://*/*"
   ],
   "background": {
-    "service_worker": "service_worker.js"
+    "service_worker": "service_worker.js",
+    "type": "module"
   },
   "action": {
     "default_popup": "popup.html"
@@ -30,7 +31,8 @@
     {
       "resources": [
         "vendor/pdf.min.js",
-        "vendor/pdf.worker.min.js"
+        "vendor/pdf.worker.min.js",
+        "pdf_bridge.js"
       ],
       "matches": [
         "<all_urls>"
