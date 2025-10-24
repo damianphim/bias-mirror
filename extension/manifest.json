@@ -32,7 +32,8 @@
       "resources": [
         "vendor/pdf.min.js",
         "vendor/pdf.worker.min.js",
-        "pdf_bridge.js"
+        "pdf_bridge.js",
+        "pdf_loader.js"
       ],
       "matches": [
         "<all_urls>"

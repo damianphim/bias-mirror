@@ -1,70 +1,47 @@
-import { corsHeaders } from '../_shared/cors.ts'
+import { OpenAI } from 'npm:openai';
+import { corsHeaders } from '../_shared/cors.ts';
+
+// Initialize OpenAI client
+const openAI = new OpenAI({
+  apiKey: Deno.env.get('OPENAI_API_KEY'),
+});
 
 console.log("Analyze document function initialized.");
 
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-
 Deno.serve(async (req) => {
-  // Handle preflight CORS request for browser security
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     const { documentText } = await req.json();
-    if (!documentText || typeof documentText !== 'string' || documentText.length < 50) {
-      throw new Error("A substantial amount of text is required for analysis.");
-    }
 
-    const prompt = `
-      Analyze the following text from an academic document for potential bias.
-      Based *only* on the text provided, return a JSON object with the following structure and nothing else:
-      {
-        "geographic_focus": "Based on locations and affiliations, determine the primary geographic focus (e.g., 'US-centric', 'Euro-centric', 'Global South', 'East Asian', 'Balanced').",
-        "gender_representation": "Based on author names and pronouns, estimate the gender representation (e.g., 'Predominantly Male', 'Predominantly Female', 'Balanced', 'Unknown').",
-        "summary": "A brief, neutral, one-sentence summary of the document's main topic.",
-        "confidence_score": "A score from 0 to 1 on how confident you are in this analysis given the limited text."
-      }
-
-      Text to analyze:
-      ---
-      ${documentText.slice(0, 15000)}
-      ---
-    `;
-
-    const response = await fetch("https://api.openai.com/v1/chat/competions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.2,
-        max_tokens: 500,
-      }),
+    const completion = await openAI.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert geopolitical analyst. Analyze the following document to identify its primary geographic focus. Your response must be a JSON object with a single key: 'geographic_focus'.",
+        },
+        {
+          role: "user",
+          content: documentText,
+        },
+      ],
+      response_format: { type: "json_object" },
     });
 
-    if (!response.ok) {
-        const errorBody = await response.json();
-        throw new Error(`OpenAI API error: ${errorBody.error.message}`);
-    }
+    const analysis = JSON.parse(completion.choices[0].message.content);
 
-    const aiResponse = await response.json();
-    const analysisResult = JSON.parse(aiResponse.choices[0].message.content);
-
-    return new Response(
-      JSON.stringify({ analysis: analysisResult }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-
+    return new Response(JSON.stringify({ analysis }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-    // Return a 400 Bad Request for client-side errors, 500 for server-side
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    console.error('Error processing request:', error.message);
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500,
     });
   }
 });

@@ -1,5 +1,3 @@
-// This script runs in the main page world and has NO access to chrome.* APIs.
-
 (async function() {
   try {
     // Read the worker source URL from the data attribute on our own script tag.
@@ -8,7 +6,6 @@
       throw new Error("PDF worker source URL was not provided via a data-worker-src attribute.");
     }
 
-    // pdf.min.js (legacy build) will have put pdfjsLib on the window.
     const pdfjsLib = window.pdfjsLib;
     if (!pdfjsLib) {
         throw new Error("pdfjsLib is not available. Please ensure the legacy build of pdf.js is being used.");
